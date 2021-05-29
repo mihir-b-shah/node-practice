@@ -33,15 +33,15 @@ class FileMap {
 
 function getFileReader(fileMap, fileList, parallelCt, doneCb){
 	const receiveFileData = function(err, data, num){
-		--(fileMap.readCt); 									// a read has completed
+		--(fileMap.readCt);
 		if(!err){
-			fileMap.patchFile(num, data); 			// patch the file id num with data
+			fileMap.patchFile(num, data);
 		}
-		++(fileMap.ct);												// we have completed one more file
+		++(fileMap.ct);
 		if(fileMap.done()){
-			doneCb(err);												// done, propagate errors, if any
+			doneCb(err);
 		} else {
-			readFiles();												// if there are files left, continue
+			readFiles();
 		}
 	};
 	
@@ -53,9 +53,9 @@ function getFileReader(fileMap, fileList, parallelCt, doneCb){
 
 	const readFiles = function(){
 		while(fileMap.curr < fileList.length && fileMap.readCt < parallelCt){
-			++(fileMap.readCt);									// start a read operation
+			++(fileMap.readCt);
 			fs.readFile(fileList[fileMap.curr], 'utf8', getFileReceiver(fileMap.curr));
-			++(fileMap.curr);										// advance to the next file.
+			++(fileMap.curr);
 		}
 	};
 
