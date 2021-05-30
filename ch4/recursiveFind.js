@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const process = require('process');
 	
-class Node {
+class FileNode {
 	constructor(v){
 		this.val = v;
 		this.next = null;
@@ -16,10 +16,11 @@ class TaskQueue {
 		this.back = null;
 		this.runCt = 0;
 		this.pLim = pLim; // parallel limit
+		this.done = false;
 	}
 
 	offer(v){
-		let n = new Node(v);
+		let n = new FileNode(v);
 		if(this.back != null){
 			this.back.next = n;
 		}
@@ -46,7 +47,8 @@ class TaskQueue {
 	}
 
 	run(fn, doneCb){
-		if(this.empty()){
+		if(this.empty() && !(this.done)){
+			this.done = true;
 			doneCb(); 
 		}
 
@@ -61,17 +63,18 @@ class TaskQueue {
 function getProcessor(kw, output, cb){
 	const runTQ = function(tq){
 		tq.run(processElement, ()=>{
-			cb(null, output);
+			cb(output);
 		});
 	}
 
 	const processDir = function(tq, dir){
-		fs.readdir(dir, (err, data) => {
+		fs.readdir(dir, {'encoding': 'utf8', 'withFileTypes': true}, (err, data) => {
 			--(tq.runCt);
 			if(err){
+				// just ignore errors.
 			} else {
 				for(const child of data){
-					tq.offer(path.join(dir, child));
+					tq.offer({'name': path.join(dir, child.name), 'isDir': child.isDirectory()});
 				}
 				runTQ(tq);
 			}
@@ -82,9 +85,9 @@ function getProcessor(kw, output, cb){
 		fs.readFile(file, 'utf8', (err, data)=>{
 			--(tq.runCt);
 			if(err){
+				// just ignore errors.
 			} else {
 				if(data.search(kw) != -1){
-					console.log(file);
 					output.push(file);
 				}
 				runTQ(tq);
@@ -94,16 +97,11 @@ function getProcessor(kw, output, cb){
 
 	const processElement = function(tq, file){
 		++(tq.runCt);
-		fs.stat(file, (err, stat)=>{
-			if(err){
-			} else {
-				if(stat.isDirectory()){
-					processDir(tq, file);
-				} else {
-					processFile(tq, file);	
-				}
-			}
-		});
+		if(file.isDir){
+			processDir(tq, file.name);
+		} else {
+			processFile(tq, file.name);
+		}
 	};
 	
 	return processElement;
@@ -111,9 +109,9 @@ function getProcessor(kw, output, cb){
 
 function recursiveFind(dir, keyword, cb){
 	let tq = new TaskQueue();
-	tq.offer(dir);
+	tq.offer({'name':'.', 'isDir':true});
 	let output = [];
 	tq.run(getProcessor(keyword, output, cb));
 }
 
-recursiveFind('.','raarig',console.log);
+recursiveFind('.', 'raarig', console.log);
